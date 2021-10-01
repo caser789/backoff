@@ -62,11 +62,11 @@ type Clock interface {
 
 // Default values for ExponentialBackoff.
 const (
-	DefaultInitialInterval     = time.Duration(500 * time.Millisecond)
+	DefaultInitialInterval     = 500 * time.Millisecond
 	DefaultRandomizationFactor = 0.5
 	DefaultMultiplier          = 1.5
-	DefaultMaxInterval         = time.Duration(60 * time.Second)
-	DefaultMaxElapsedTime      = time.Duration(15 * time.Minute)
+	DefaultMaxInterval         = 60 * time.Second
+	DefaultMaxElapsedTime      = 15 * time.Minute
 )
 
 // NewExponentialBackoff creates an instance of ExponentialBackoff using default values.
@@ -77,7 +77,7 @@ func NewExponentialBackoff() *ExponentialBackoff {
 		Multiplier:          DefaultMultiplier,
 		MaxInterval:         DefaultMaxInterval,
 		MaxElapsedTime:      DefaultMaxElapsedTime,
-		Clock:               systemClock{},
+		Clock:               SystemClock,
 	}
 }
 
@@ -86,6 +86,8 @@ type systemClock struct{}
 func (t systemClock) Now() time.Time {
 	return time.Now()
 }
+
+var SystemClock = systemClock{}
 
 // Reset the interval back to the initial retry interval and restarts the timer.
 func (b *ExponentialBackoff) Reset() {
