@@ -2,14 +2,16 @@ package backoff
 
 import (
 	"runtime"
+	"sync"
 	"time"
 )
 
 type Ticker struct {
-	C    <-chan time.Time
-	c    chan time.Time
-	b    BackOff
-	stop chan struct{}
+	C        <-chan time.Time
+	c        chan time.Time
+	b        BackOff
+	stop     chan struct{}
+	stopOnce sync.Once
 }
 
 func NewTicker(b BackOff) *Ticker {
@@ -18,7 +20,7 @@ func NewTicker(b BackOff) *Ticker {
 		C:    c,
 		c:    c,
 		b:    b,
-		stop: make(chan struct{}, 1),
+		stop: make(chan struct{}),
 	}
 	go t.run()
 	runtime.SetFinalizer(t, func(x *Ticker) { x.Stop() })
@@ -26,44 +28,42 @@ func NewTicker(b BackOff) *Ticker {
 }
 
 func (t *Ticker) Stop() {
-	select {
-	case t.stop <- struct{}{}:
-	default:
-	}
+	t.stopOnce.Do(func() { close(t.stop) })
 }
 
 func (t *Ticker) run() {
-	var (
-		next   time.Duration
-		afterC <-chan time.Time
-		tick   time.Time
-	)
-
 	defer close(t.c)
 	t.b.Reset()
 
-	send := func() {
-		select {
-		case t.c <- tick:
-		case <-t.stop:
-			return
-		}
+	// Ticker is guaranteed to tick at least once.
+	afterC := t.send(time.Now())
 
-		next = t.b.NextBackOff()
-		if next == Stop {
-			t.Stop()
-			return
-		}
-		afterC = time.After(next)
-	}
-
-	send() // Ticker is guaranteed to tick at least once.
 	for {
+		if afterC == nil {
+			return
+		}
+
 		select {
-		case tick = <-afterC:
-			send()
+		case tick := <-afterC:
+			afterC = t.send(tick)
 		case <-t.stop:
 			return
 		}
 	}
+}
+
+func (t *Ticker) send(tick time.Time) <-chan time.Time {
+	select {
+	case t.c <- tick:
+	case <-t.stop:
+		return nil
+	}
+
+	next := t.b.NextBackOff()
+	if next == Stop {
+		t.Stop()
+		return nil
+	}
+
+	return time.After(next)
 }
