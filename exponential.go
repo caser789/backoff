@@ -49,8 +49,10 @@ type ExponentialBackoff struct {
 	RandomizationFactor float64
 	Multiplier          float64
 	MaxInterval         time.Duration
-	MaxElapsedTime      time.Duration
-	Clock               Clock
+	// After MaxElapsedTime the ExponentialBackOff stops.
+	// It never stops if MaxElapsedTime == 0.
+	MaxElapsedTime time.Duration
+	Clock          Clock
 
 	currentInterval time.Duration
 	startTime       time.Time
@@ -99,7 +101,7 @@ func (b *ExponentialBackoff) Reset() {
 // 	randomized_interval = retry_interval +/- (randomization_factor * retry_interval)
 func (b *ExponentialBackoff) NextBackOff() time.Duration {
 	// Make sure we have not gone over the maximum elapsed time.
-	if b.GetElapsedTime() > b.MaxElapsedTime {
+	if b.MaxElapsedTime != 0 && b.GetElapsedTime() > b.MaxElapsedTime {
 		return Stop
 	}
 	defer b.incrementCurrentInterval()

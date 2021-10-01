@@ -23,7 +23,7 @@ func NewTicker(b BackOff) *Ticker {
 		stop: make(chan struct{}),
 	}
 	go t.run()
-	runtime.SetFinalizer(t, func(x *Ticker) { x.Stop() })
+	runtime.SetFinalizer(t, (*Ticker).Stop)
 	return t
 }
 
@@ -32,7 +32,8 @@ func (t *Ticker) Stop() {
 }
 
 func (t *Ticker) run() {
-	defer close(t.c)
+	c := t.c
+	defer close(c)
 	t.b.Reset()
 
 	// Ticker is guaranteed to tick at least once.
@@ -47,6 +48,7 @@ func (t *Ticker) run() {
 		case tick := <-afterC:
 			afterC = t.send(tick)
 		case <-t.stop:
+			t.c = nil // Prevent future ticks from being sent to the channel.
 			return
 		}
 	}
