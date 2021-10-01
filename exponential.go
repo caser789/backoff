@@ -100,9 +100,8 @@ func (b *ExponentialBackoff) NextBackOff() time.Duration {
 	if b.GetElapsedTime() > b.MaxElapsedTime {
 		return Stop
 	}
-	var randomizedInterval time.Duration = getRandomValueFromInterval(b.RandomizationFactor, rand.Float64(), b.currentInterval)
-	b.incrementCurrentInterval()
-	return randomizedInterval
+	defer b.incrementCurrentInterval()
+	return getRandomValueFromInterval(b.RandomizationFactor, rand.Float64(), b.currentInterval)
 }
 
 // GetElapsedTime returns the elapsed time in milliseconds since an
@@ -126,12 +125,11 @@ func (b *ExponentialBackoff) incrementCurrentInterval() {
 // Returns a random value from the interval:
 // 	[randomizationFactor * currentInterval, randomizationFactor * currentInterval].
 func getRandomValueFromInterval(randomizationFactor, random float64, currentInterval time.Duration) time.Duration {
-	var delta float64 = randomizationFactor * float64(currentInterval)
-	var minInterval float64 = float64(currentInterval) - delta
-	var maxInterval float64 = float64(currentInterval) + delta
+	var delta = randomizationFactor * float64(currentInterval)
+	var minInterval = float64(currentInterval) - delta
+	var maxInterval = float64(currentInterval) + delta
 	// Get a random value from the range [minInterval, maxInterval].
 	// The formula used below has a +1 because if the minInterval is 1 and the maxInterval is 3 then
 	// we want a 33% chance for selecting either 1, 2 or 3.
-	var randomValue time.Duration = time.Duration(minInterval + (random * (maxInterval - minInterval + 1)))
-	return randomValue
+	return time.Duration(minInterval + (random * (maxInterval - minInterval + 1)))
 }

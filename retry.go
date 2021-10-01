@@ -2,27 +2,33 @@ package backoff
 
 import "time"
 
-// Retry takes a function and a BackOff implementation and retries the function
-// until it does not return error or BackOff stops.
+// Retry the function f until it does not return error or BackOff stops.
+//
+// Example:
+// 	operation := func() error {
+// 		// An operation that may fail
+// 	}
+//
+// 	err := backoff.Retry(operation, backoff.NewExponentialBackoff())
+// 	if err != nil {
+// 		// handle error
+// 	}
+//
+// 	// operation is successfull
 func Retry(f func() error, b BackOff) error {
-	err := f()
-	if err == nil {
-		return nil
-	}
+	var err error
+	var next time.Duration
 
 	b.Reset()
 	for {
-		next := b.NextBackOff()
-		if next == Stop {
+		if err = f(); err == nil {
+			return nil
+		}
+
+		if next = b.NextBackOff(); next == Stop {
 			return err
 		}
 
-		time.Sleep(time.Duration(next))
-		err = f()
-		if err != nil {
-			continue
-		}
-
-		return nil
+		time.Sleep(next)
 	}
 }
