@@ -106,3 +106,14 @@ func assertEquals(t *testing.T, expected, value time.Duration) {
 		t.Errorf("got: %d, expected: %d", value, expected)
 	}
 }
+
+func TestCustomStop(t *testing.T) {
+	var exp = NewExponentialBackoff()
+	customStop := time.Minute
+	exp.Stop = customStop
+	exp.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
+	// Change the currentElapsedTime to be 0 ensuring that the elapsed time will be greater
+	// than the max elapsed time.
+	exp.startTime = time.Time{}
+	assertEquals(t, customStop, exp.NextBackOff())
+}
