@@ -57,10 +57,6 @@ func (b *backOffContext) NextBackOff() time.Duration {
 	case <-b.ctx.Done():
 		return Stop
 	default:
+		return b.BackOff.NextBackOff()
 	}
-	next := b.BackOff.NextBackOff()
-	if deadline, ok := b.ctx.Deadline(); ok && time.Until(deadline) < next {
-		return Stop
-	}
-	return next
 }

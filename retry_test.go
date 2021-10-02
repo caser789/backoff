@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestRetry(t *testing.T) {
 	const successOn = 3
 	var i = 0
 
-	// This function is successfull on "successOn" calls.
+	// This function is successful on "successOn" calls.
 	f := func() error {
 		i++
 		log.Printf("function is called %d. time\n", i)
@@ -80,7 +81,7 @@ func TestRetryContext(t *testing.T) {
 	if err == nil {
 		t.Errorf("error is unexpectedly nil")
 	}
-	if err.Error() != "error (3)" {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("unexpected error: %s", err.Error())
 	}
 	if i != cancelOn {
@@ -89,29 +90,67 @@ func TestRetryContext(t *testing.T) {
 }
 
 func TestRetryPermanent(t *testing.T) {
-	const permanentOn = 3
-	var i = 0
+	ensureRetries := func(test string, shouldRetry bool, f func() error) {
+		numRetries := -1
+		maxRetries := 1
 
-	// This function fails permanently after permanentOn tries
-	f := func() error {
-		i++
-		log.Printf("function is called %d. time\n", i)
+		_ = RetryNotifyWithTimer(
+			func() error {
+				numRetries++
+				if numRetries >= maxRetries {
+					return Permanent(errors.New("forced"))
+				}
+				return f()
+			},
+			NewExponentialBackoff(),
+			nil,
+			&testTimer{},
+		)
 
-		if i == permanentOn {
-			log.Println("permanent error")
-			return Permanent(errors.New("permanent error"))
+		if shouldRetry && numRetries == 0 {
+			t.Errorf("Test: '%s', backoff should have retried", test)
 		}
 
-		log.Println("error")
-		return errors.New("error")
+		if !shouldRetry && numRetries > 0 {
+			t.Errorf("Test: '%s', backoff should not have retried", test)
+		}
 	}
 
-	err := RetryNotifyWithTimer(f, NewExponentialBackoff(), nil, &testTimer{})
-	if err == nil || err.Error() != "permanent error" {
-		t.Errorf("unexpected error: %s", err)
-	}
-	if i != permanentOn {
-		t.Errorf("invalid number of retries: %d", i)
+	for _, testCase := range []struct {
+		name        string
+		f           func() error
+		shouldRetry bool
+	}{
+		{
+			"nil test",
+			func() error {
+				return nil
+			},
+			false,
+		},
+		{
+			"io.EOF",
+			func() error {
+				return io.EOF
+			},
+			true,
+		},
+		{
+			"Permanent(io.EOF)",
+			func() error {
+				return Permanent(io.EOF)
+			},
+			false,
+		},
+		{
+			"Wrapped: Permanent(io.EOF)",
+			func() error {
+				return fmt.Errorf("Wrapped error: %w", Permanent(io.EOF))
+			},
+			false,
+		},
+	} {
+		ensureRetries(testCase.name, testCase.shouldRetry, testCase.f)
 	}
 }
 
@@ -138,6 +177,7 @@ func TestPermanent(t *testing.T) {
 	if !errors.As(wrapped, &permanent) {
 		t.Errorf("errors.As(%v, %v)", wrapped, permanent)
 	}
+
 	err = Permanent(nil)
 	if err != nil {
 		t.Errorf("got %v, want nil", err)
