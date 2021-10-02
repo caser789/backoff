@@ -9,7 +9,7 @@ import (
 type Ticker struct {
 	C        <-chan time.Time
 	c        chan time.Time
-	b        BackOff
+	b        BackOffContext
 	stop     chan struct{}
 	stopOnce sync.Once
 }
@@ -19,7 +19,7 @@ func NewTicker(b BackOff) *Ticker {
 	t := &Ticker{
 		C:    c,
 		c:    c,
-		b:    b,
+		b:    ensureContext(b),
 		stop: make(chan struct{}),
 	}
 	go t.run()
@@ -49,6 +49,8 @@ func (t *Ticker) run() {
 			afterC = t.send(tick)
 		case <-t.stop:
 			t.c = nil // Prevent future ticks from being sent to the channel.
+			return
+		case <-t.b.Context().Done():
 			return
 		}
 	}
