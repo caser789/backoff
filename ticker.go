@@ -17,7 +17,7 @@ type Ticker struct {
 }
 
 func NewTicker(b BackOff) *Ticker {
-	return NewTickerWithTimer(b, &DefaultTimer{})
+	return NewTickerWithTimer(b, &defaultTimer{})
 }
 
 func NewTickerWithTimer(b BackOff, timer Timer) *Ticker {
