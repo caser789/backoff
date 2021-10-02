@@ -30,9 +30,21 @@ func Retry(o Operation, b BackOff) error { return RetryNotify(o, b, nil) }
 
 // RetryNotify calls notify function with the error and wait duration for each failed attempt before sleep.
 func RetryNotify(operation Operation, b BackOff, notify Notify) error {
+	return RetryNotifyWithTimer(operation, b, notify, nil)
+}
+
+// RetryNotifyWithTimer calls notify function with the error and wait duration using the given Timer
+// for each failed attempt before sleep.
+func RetryNotifyWithTimer(operation Operation, b BackOff, notify Notify, t Timer) error {
 	var err error
 	var next time.Duration
-	var t *time.Timer
+	if t == nil {
+		t = &DefaultTimer{}
+	}
+
+	defer func() {
+		t.Stop()
+	}()
 	cb := ensureContext(b)
 	b.Reset()
 	for {
@@ -52,17 +64,12 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 			notify(err, next)
 		}
 
-		if t == nil {
-			t = time.NewTimer(next)
-			defer t.Stop()
-		} else {
-			t.Reset(next)
-		}
+		t.Start(next)
 
 		select {
 		case <-cb.Context().Done():
 			return cb.Context().Err()
-		case <-t.C:
+		case <-t.C():
 		}
 	}
 }
@@ -85,4 +92,34 @@ func Permanent(err error) *PermanentError {
 	return &PermanentError{
 		Err: err,
 	}
+}
+
+type Timer interface {
+	Start(duration time.Duration)
+	Stop()
+	C() <-chan time.Time
+}
+
+// DefaultTimer implements Timer interface using time.Timer
+type DefaultTimer struct {
+	timer *time.Timer
+}
+
+// C returns the timers channel which receives the current time when the timer fires.
+func (t *DefaultTimer) C() <-chan time.Time {
+	return t.timer.C
+}
+
+// Start starts the timer to fire after the given duration
+func (t *DefaultTimer) Start(duration time.Duration) {
+	if t.timer == nil {
+		t.timer = time.NewTimer(duration)
+	} else {
+		t.timer.Reset(duration)
+	}
+}
+
+// Stop is called when the timer is not used anymore and resources may be freed.
+func (t *DefaultTimer) Stop() {
+	t.timer.Stop()
 }
