@@ -19,6 +19,9 @@ type backOffTries struct {
 }
 
 func (b *backOffTries) NextBackOff() time.Duration {
+	if b.maxTries == 0 {
+		return Stop
+	}
 	if b.maxTries > 0 {
 		if b.maxTries <= b.numTries {
 			return Stop

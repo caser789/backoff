@@ -18,7 +18,9 @@ func (t *testTimer) Start(duration time.Duration) {
 }
 
 func (t *testTimer) Stop() {
-	t.timer.Stop()
+	if t.timer != nil {
+		t.timer.Stop()
+	}
 }
 
 func (t *testTimer) C() <-chan time.Time {
@@ -86,7 +88,7 @@ func TestRetryContext(t *testing.T) {
 	}
 }
 
-func TestRetryPermenent(t *testing.T) {
+func TestRetryPermanent(t *testing.T) {
 	const permanentOn = 3
 	var i = 0
 
@@ -110,5 +112,34 @@ func TestRetryPermenent(t *testing.T) {
 	}
 	if i != permanentOn {
 		t.Errorf("invalid number of retries: %d", i)
+	}
+}
+
+func TestPermanent(t *testing.T) {
+	want := errors.New("foo")
+	other := errors.New("bar")
+	var err error = Permanent(want)
+
+	got := errors.Unwrap(err)
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	if is := errors.Is(err, want); !is {
+		t.Errorf("err: %v is not %v", err, want)
+	}
+
+	if is := errors.Is(err, other); is {
+		t.Errorf("err: %v is %v", err, other)
+	}
+
+	wrapped := fmt.Errorf("wrapped: %w", err)
+	var permanent *PermanentError
+	if !errors.As(wrapped, &permanent) {
+		t.Errorf("errors.As(%v, %v)", wrapped, permanent)
+	}
+	err = Permanent(nil)
+	if err != nil {
+		t.Errorf("got %v, want nil", err)
 	}
 }

@@ -105,11 +105,13 @@ func (b *ExponentialBackoff) Reset() {
 // 	randomized_interval = retry_interval +/- (randomization_factor * retry_interval)
 func (b *ExponentialBackoff) NextBackOff() time.Duration {
 	// Make sure we have not gone over the maximum elapsed time.
-	if b.MaxElapsedTime != 0 && b.GetElapsedTime() > b.MaxElapsedTime {
+	elapsed := b.GetElapsedTime()
+	next := getRandomValueFromInterval(b.RandomizationFactor, rand.Float64(), b.currentInterval)
+	b.incrementCurrentInterval()
+	if b.MaxElapsedTime != 0 && elapsed+next > b.MaxElapsedTime {
 		return b.Stop
 	}
-	defer b.incrementCurrentInterval()
-	return getRandomValueFromInterval(b.RandomizationFactor, rand.Float64(), b.currentInterval)
+	return next
 }
 
 // GetElapsedTime returns the elapsed time in milliseconds since an

@@ -21,6 +21,9 @@ func NewTicker(b BackOff) *Ticker {
 }
 
 func NewTickerWithTimer(b BackOff, timer Timer) *Ticker {
+	if timer == nil {
+		timer = &defaultTimer{}
+	}
 	c := make(chan time.Time)
 	t := &Ticker{
 		C:     c,
