@@ -1,7 +1,7 @@
 package backoff
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"time"
 )
 

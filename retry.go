@@ -39,6 +39,10 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 			return nil
 		}
 
+		if permanent, ok := err.(*PermanentError); ok {
+			return permanent.Err
+		}
+
 		if next = b.NextBackOff(); next == Stop {
 			return err
 		}
@@ -55,5 +59,21 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 			return err
 		case <-t.C:
 		}
+	}
+}
+
+// PermanentError signals that the operation should not be retried.
+type PermanentError struct {
+	Err error
+}
+
+func (e *PermanentError) Error() string {
+	return e.Err.Error()
+}
+
+// Permanent wraps the given err in a *PermanentError.
+func Permanent(err error) *PermanentError {
+	return &PermanentError{
+		Err: err,
 	}
 }

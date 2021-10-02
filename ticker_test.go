@@ -1,9 +1,9 @@
 package backoff
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/net/context"
 	"log"
 	"testing"
 	"time"
