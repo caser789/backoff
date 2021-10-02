@@ -11,18 +11,24 @@ type Ticker struct {
 	c        chan time.Time
 	b        BackOff
 	ctx      context.Context
+	timer    Timer
 	stop     chan struct{}
 	stopOnce sync.Once
 }
 
 func NewTicker(b BackOff) *Ticker {
+	return NewTickerWithTimer(b, &DefaultTimer{})
+}
+
+func NewTickerWithTimer(b BackOff, timer Timer) *Ticker {
 	c := make(chan time.Time)
 	t := &Ticker{
-		C:    c,
-		c:    c,
-		b:    b,
-		ctx:  getContext(b),
-		stop: make(chan struct{}),
+		C:     c,
+		c:     c,
+		b:     b,
+		ctx:   getContext(b),
+		timer: timer,
+		stop:  make(chan struct{}),
 	}
 	t.b.Reset()
 	go t.run()
@@ -70,5 +76,6 @@ func (t *Ticker) send(tick time.Time) <-chan time.Time {
 		return nil
 	}
 
-	return time.After(next)
+	t.timer.Start(next)
+	return t.timer.C()
 }
