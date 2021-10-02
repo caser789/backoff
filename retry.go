@@ -2,6 +2,17 @@ package backoff
 
 import "time"
 
+// An Operation is executing by Retry() or RetryNotify().
+// The operation will be retried using a backoff policy if it returns an error.
+type Operation func() error
+
+// Notify is a notify-on-error function. It receives an operation error and
+// backoff delay if the operation failed (with an error).
+//
+// NOTE that if the backoff policy stated to stop retrying,
+// the notify function isn't called.
+type Notify func(error, time.Duration)
+
 // Retry the function f until it does not return error or BackOff stops.
 //
 // Example:
@@ -15,16 +26,16 @@ import "time"
 // 	}
 //
 // 	// operation is successfull
-func Retry(f func() error, b BackOff) error { return RetryNotify(f, b, nil) }
+func Retry(o Operation, b BackOff) error { return RetryNotify(o, b, nil) }
 
 // RetryNotify calls notify function with the error and wait duration for each failed attempt before sleep.
-func RetryNotify(f func() error, b BackOff, notify func(err error, wait time.Duration)) error {
+func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 	var err error
 	var next time.Duration
 
 	b.Reset()
 	for {
-		if err = f(); err == nil {
+		if err = operation(); err == nil {
 			return nil
 		}
 
