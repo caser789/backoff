@@ -45,7 +45,7 @@ func RetryNotifyWithTimer(operation Operation, b BackOff, notify Notify, t Timer
 	defer func() {
 		t.Stop()
 	}()
-	cb := ensureContext(b)
+	ctx := getContext(b)
 	b.Reset()
 	for {
 		if err = operation(); err == nil {
@@ -56,7 +56,7 @@ func RetryNotifyWithTimer(operation Operation, b BackOff, notify Notify, t Timer
 			return permanent.Err
 		}
 
-		if next = cb.NextBackOff(); next == Stop {
+		if next = b.NextBackOff(); next == Stop {
 			return err
 		}
 
@@ -67,8 +67,8 @@ func RetryNotifyWithTimer(operation Operation, b BackOff, notify Notify, t Timer
 		t.Start(next)
 
 		select {
-		case <-cb.Context().Done():
-			return cb.Context().Err()
+		case <-ctx.Done():
+			return err
 		case <-t.C():
 		}
 	}
